@@ -1,0 +1,70 @@
+﻿
+Documentation
+
+ 1, Sử dụng ASP.NET + Database SQL
+ 2, Sử dụng ADO để xử lý kết nối và truy vấn
+ 3, Sử dụng Dependency Injection ( Structural Design Patterns)
+ 4, Sủ dụng Store Procedure để truy vấn phức tạp
+ 5, Sử dụng Parameters để tránh tấn công SQL injection
+ 6, Sử dụng IMemoryCache để lưu cache
+
+ I, Mô tả thư mục
+	1, HomeController 
+		+ Quản lý sự kiện
+			- ChangeLanguage ( tương ứng với phần chọn ngôn ngữ trên giao diện -> set ngôn ngữ vào cookies để load lại lần tiếp theo)
+			- GetLanguageConfig ( Truy vấn vào Database để kiểm tra tất cả các loại ngôn ngữ được khai báo trong bảng LanguageConfig)
+
+		+ Sử dụng ICookiesRepository và IDatabaseLocalizer để inject vào constructor
+
+	2, Documentation
+		+ Documentation là phần tài liệu
+		+ Script : Mô tả script tương tác với database
+
+	3, Models
+		+ Khai báo cấu trúc của các model tương ứng với các bảng trong database
+
+	4, Helper
+		+ CheckNewestData : kiểm tra sự thay đổi của dữ liệu phần translation. Nếu có thay đổi cần xử lý lại cache
+			- Bằng cách vào bảng LanguageConfig check cột IsChangeData ( true là có thay đổi)
+
+	5, Services
+		+ Cookies : 
+			- Chứa interface và class logic của lớp xử lý Cookies
+			- Mục đích là đưa phần ngôn ngữ được chọn vào Cookies để phục vụ load lại giao diện lần sau
+			- Load lại giao diện khi truy cập lại với ngôn ngữ đã chọn lần trước
+
+		+ DatabaseLocalizer :
+			- Chứa interface và class logic của lớp xử lý DatabaseLocalizer
+			- Query vào Database để lấy các loại ngôn ngữ được khai báo (Sử dụng tạo HomeController)
+			- Query vào database để lấy các bản dịch theo ngôn ngữ và keys có trên giao diện
+
+	6, Views 
+		+ file _ViewImports.cshtml : Khai báo các namespace hoặc thuộc tính muốn sử dụng ở 1 hoặc tất cả các trong .cshtml
+			- Trong này khai báo IDatabaseLocalizer để gọi tới interface xử lý DatabaseLocalizer
+		+ Home -> file Index.cshtml : Chứa code phần index ( có phần chuyển đổi ngôn ngữ tại đây )
+		+ Shared -> file _Layout.cshtml : Có chức script và html phần dropdown ngôn ngữ
+
+
+	7, Program.cs
+		+ Khai báo và khởi tạo các services cần sử dụng
+
+	II, Mô tả logic
+
+		1, Thêm mới ngôn ngữ và bản dịch
+			Bước 1 : Thêm mới trong bảng LanguageConfigs ( Nhớ lưu lại Id để phục vụ cho bước 3 )
+				+ LanguageIcon lấy theo thư viện https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css
+				+ Ví dụ : INSERT INTO LanguageConfig VALUES (@IdLanguageConfig, N'hi_IN', N'हिंदी भाषा', N'flag-icon flag-icon-in', 1,6)
+				+ Lưu ý có thể dùng DECLARE để lấy ID mới xong truyền vào dạng varible hoặc NewID xong vào Database copy
+
+			Bước 2 : Thêm mới 1 Keys trong bảng TranslationKey (Nhớ lưu lại Id để phục vụ cho bước 3)
+				+ Ví dụ : INSERT INTO TranslationKey VALUES (@IdTranslationKey, N'input.placeholder.UserName', N'AccountGroup', N'Mô tả đây là placeholder của input UserName')
+
+			Bước 3 : Thêm mới 1 hoặc nhiều bảng ghi ( tùy theo ngôn ngữ đã có hoặc thêm mới, sử dụng 2 mục Id ở bước 1 và bước 2)
+				+ Ví dụ : INSERT INTO Translation (NEWID(), @IdTranslationKey, @IdLanguageConfig, N'Nội dung thể hiện trên màn hình')
+				+ Lưu ý thay đúng ID cho các bản dịch, tránh trường hợp ID ngôn ngữ là tiếng việt lại show ra tiếng anh, hoặc copy Id của UserName lại thành Email ...
+
+		2, Sửa nội dung
+			Bước 1 : 
+				+ Tìm bản ghi cần thay đổi (nhớ lấy Id ngôn ngữ thay đổi)
+			Bước 2 : Bắt buộc (nếu không thực hiện sẽ không có dữ liệu mới)
+				+ Quay về bảng LanguageConfig Update cột IsChangeData thành 1 ( Để hệ thống clear cache cũ nếu có => đăng ký cache mới)
